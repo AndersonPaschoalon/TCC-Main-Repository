@@ -1,0 +1,9 @@
+- name: Configuração mínima do cluster
+  hosts: all
+  become: true
+  roles:
+    - base
+    - munge
+    - slurm
+
+    

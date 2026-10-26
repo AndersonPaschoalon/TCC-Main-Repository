@@ -1,0 +1,24 @@
+- name: Instalar pacotes do Slurm e do munge
+  ansible.builtin.apt:
+    name:
+      - slurm-wlm
+      - slurm-client
+      - munge
+    state: present
+    update_cache: true
+
+- name: Criar diretório de estado do controlador
+  ansible.builtin.file:
+    path: /var/spool/slurmctld
+    state: directory
+    owner: slurm
+    group: slurm
+    mode: "0755"
+
+- name: Criar diretório de spool do nó de computação
+  ansible.builtin.file:
+    path: /var/spool/slurmd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"

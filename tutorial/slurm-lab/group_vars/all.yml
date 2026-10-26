@@ -1,0 +1,11 @@
+cluster_name: mini-cluster
+controller_host: "{{ ansible_hostname }}"
+
+slurm_nodes:
+  - name: "{{ ansible_hostname }}"
+    addr: 127.0.0.1
+    port: 6818
+    cpus: 8
+    real_memory: 8000
+    gpu_count: 1
+    gpu_device: /dev/nvidia0
