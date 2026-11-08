@@ -55,7 +55,9 @@ Cada linha mostra o nome interno de uma opção, o arquivo de onde ela veio e o 
 
 ## 3.2 Inventário: quais máquinas existem
 
-O inventário é o arquivo que lista as máquinas gerenciadas pelo Ansible, organizadas em **grupos**. Ele fica em `inventory/hosts.yml`.
+O inventário lista as máquinas gerenciadas pelo Ansible, organizadas em **grupos**, e guarda as variáveis de cada máquina. Ele fica em `inventory/hosts.yml`.
+
+Há uma regra de nomes que sustenta toda a configuração: **o nome de cada host no inventário é o nome curto da máquina**, o que `hostname -s` retorna. O Slurm também identifica cada nó pelo nome da máquina, então usar o mesmo nome nos dois lugares elimina uma fonte de erro.
 
 Exemplo com uma única máquina, usada ao mesmo tempo como controlador e como nó de computação:
 
@@ -64,149 +66,149 @@ all:
   children:
     controller:
       hosts:
-        localhost:
+        <hostname>:
           ansible_connection: local
     compute:
       hosts:
-        localhost:
+        <hostname>:
           ansible_connection: local
+          cpus: 8
+          real_memory: 7800
+          gpu_count: 1
+          gpu_device: /dev/nvidia0
 ```
 
 Leitura de dentro para fora:
 
-- `all` é o grupo que contém todos os outros.
-- `children` lista os subgrupos.
-- `controller` e `compute` são grupos. Um host pode pertencer a mais de um grupo.
-- `localhost` é o nome do host. Para o Ansible, é apenas um identificador. Aqui, é a própria máquina.
+- `all` é o grupo que contém todos os outros. `children` lista os subgrupos.
+- `controller` e `compute` são grupos. Um host pode pertencer a mais de um grupo, e é por isso que a mesma máquina aparece nos dois.
+- `<hostname>` é um marcador. Substitua pelo resultado de `hostname -s`.
 - `ansible_connection: local` executa as tarefas na própria máquina, sem SSH.
+- `cpus`, `real_memory`, `gpu_count` e `gpu_device` são **variáveis de host**. Elas pertencem à máquina, então ficam junto dela. Foram definidas no grupo `compute` porque só os nós de computação as usam. Os valores são ilustrativos.
 
-Por que separar em grupos quando a máquina é a mesma? Porque as roles usam os grupos para decidir o que fazer em cada host. Por exemplo, o controlador do Slurm só é iniciado em hosts do grupo `controller`, e o serviço de nó só nos do grupo `compute`. Quando houver máquinas diferentes, a lógica é a mesma: muda apenas a lista de hosts de cada grupo.
+Por que separar em grupos, se a máquina é a mesma? As roles usam os grupos para decidir o que fazer em cada host. O controlador só é iniciado em hosts do grupo `controller`, e o serviço de nó só nos do grupo `compute`. Quando houver máquinas diferentes, a lógica é a mesma: muda apenas a lista de hosts de cada grupo.
 
 ### Verificando o inventário
+
+Para ver a estrutura, como o Ansible a interpreta:
 
 ```bash
 ansible-inventory --graph
 ```
 
-Saída ilustrativa (a ordem dos grupos pode variar conforme a versão):
+Saída ilustrativa:
 
 ```
 @all:
-  |--@ungrouped:
   |--@controller:
-  |  |--localhost
+  |  |--node01
   |--@compute:
-  |  |--localhost
+  |  |--node01
 ```
 
-O grupo `ungrouped` é criado automaticamente pelo Ansible para hosts que não pertencem a nenhum grupo. Aqui ele fica vazio.
-
-Se a saída trouxer o aviso `No inventory was parsed, only implicit localhost is available` e nenhum dos grupos do projeto, o Ansible não encontrou o inventário. O aviso não indica erro no arquivo, e sim na localização: confira se o comando foi executado na raiz do projeto e se o `ansible.cfg` contém a linha `inventory` (seção 3.1). Para isolar o problema, o caminho também pode ser passado diretamente, com `ansible-inventory -i inventory/hosts.yml --graph`.
-
-Para ver as variáveis de cada host:
+Para ver as variáveis de um host:
 
 ```bash
-ansible-inventory --list
+ansible-inventory --host <hostname>
 ```
 
-> **Referência:** Ansible. *How to build your inventory*. docs.ansible.com, seção de inventários estáticos (formato YAML).
+Os valores de `cpus`, `real_memory`, `gpu_count` e `gpu_device` devem aparecer com os números que você definiu.
+
+> **Referência:** Ansible. *How to build your inventory*. docs.ansible.com, seções sobre inventários estáticos em YAML e variáveis de host.
 
 ---
 
 ## 3.3 Variáveis: a fonte única da verdade
 
-Variáveis são valores nomeados que as tarefas e os templates usam. Neste tutorial, todas as variáveis de topologia ficam em `group_vars/all.yml`. O nome `all` indica que elas valem para todos os hosts. O Ansible carrega esse arquivo sozinho, sem que ele seja citado em nenhum outro lugar, porque a pasta `group_vars/` está na pasta de referência do projeto (seção 3.1).
+Variáveis são valores nomeados que as tarefas e os templates usam. Para que a configuração não se repita, cada valor deve existir em um único lugar. Neste tutorial há dois lugares para isso:
 
-Exemplo para uma máquina com uma GPU:
+- **`group_vars/all.yml`** guarda valores que valem para o cluster inteiro.
+- **O inventário** guarda valores que pertencem a cada máquina.
+
+### Valores do cluster: `group_vars/all.yml`
+
+O nome `all` indica que as variáveis valem para todos os hosts. O Ansible carrega esse arquivo sozinho, porque a pasta `group_vars/` está na pasta de referência do projeto (seção 3.1).
 
 ```yaml
 cluster_name: mini-cluster
-controller_host: "{{ ansible_hostname }}"
-
-slurm_nodes:
-  - name: "{{ ansible_hostname }}"
-    addr: 127.0.0.1
-    port: 6818
-    cpus: 8
-    real_memory: 8000
-    gpu_count: 1
-    gpu_device: /dev/nvidia0
+slurmd_port: 6818
 ```
 
-Pontos a entender:
-
-- **`cluster_name`** é um texto livre. O Slurm o usa para identificar o cluster.
-- **`controller_host`** usa `"{{ ansible_hostname }}"`. Essa é uma **variável de fato** (*fact*), com o hostname real da máquina. Usar `localhost` aqui seria um erro, porque o Slurm compara esse valor com o nome real do host.
-- **`slurm_nodes`** é uma lista. Cada item descreve um nó. Para acrescentar um nó, basta adicionar um item à lista, sem alterar o restante do projeto.
-- **`cpus`** e **`real_memory`** são os valores levantados na Parte 2, com a margem de memória indicada na seção 2.2. Os números do exemplo (`8` e `8000`) são **ilustrativos**. Substitua-os pelos valores da sua máquina.
-- **`gpu_device`** aponta para o arquivo de dispositivo da GPU. O nome depende do fabricante (no caso NVIDIA, `/dev/nvidia0`). Nós sem GPU física não definem essa variável.
-
-### Consultando uma variável
-
-O módulo `debug` mostra o valor de uma variável sem alterar nada:
+O módulo `debug` mostra o valor de uma variável sem alterar nada. O padrão `all` indica que o comando vale para todos os hosts do inventário:
 
 ```bash
-ansible localhost -m ansible.builtin.debug -a "var=cluster_name"
+ansible all -m ansible.builtin.debug -a "var=cluster_name"
 ```
 
 Saída ilustrativa:
 
 ```
-localhost | SUCCESS => {
+<hostname> | SUCCESS => {
     "cluster_name": "mini-cluster"
 }
 ```
 
-Se a saída mostrar `VARIABLE IS NOT DEFINED!`, o Ansible não encontrou `group_vars/all.yml`. Confira a linha `playbook_dir` do `ansible.cfg` (seção 3.1).
+Se a saída mostrar `VARIABLE IS NOT DEFINED!`, o Ansible não encontrou o arquivo. Confira a linha `playbook_dir` do `ansible.cfg` (seção 3.1).
 
-### Variáveis de fato: valores descobertos na execução
+### Topologia: duas formas de declarar os nós
 
-Nem toda variável tem valor fixo. Para ver como o Ansible enxerga as variáveis de um host antes de executar qualquer coisa:
+Os nós do cluster podem ser declarados de duas formas. Ambas funcionam com uma máquina. A diferença aparece quando há várias, e por isso as duas são apresentadas.
 
-```bash
-ansible-inventory --host localhost
+#### Abordagem A: lista de nós em `group_vars`
+
+Nesta forma, `group_vars/all.yml` contém uma lista com um item por nó:
+
+```yaml
+controller_host: <hostname>
+
+slurm_nodes:
+  - name: <hostname>
+    addr: 127.0.0.1
+    cpus: 8
+    real_memory: 7800
+    gpu_count: 1
+    gpu_device: /dev/nvidia0
 ```
 
-Saída ilustrativa (resumida):
+A forma é simples e fácil de ler, porque toda a topologia está em um único arquivo. O limite aparece quando o cluster cresce. Cada máquina precisa ser descrita duas vezes: no inventário, para existir como host, e na lista `slurm_nodes`, para existir como nó. Nada verifica se as duas descrições batem. Se uma máquina for adicionada a uma das listas e esquecida na outra, a configuração gerada fica errada sem nenhum aviso.
 
-```
-{
-    "ansible_connection": "local",
-    "cluster_name": "mini-cluster",
-    "controller_host": "{{ ansible_hostname }}",
-    ...
-}
-```
+Os nomes dos itens devem ser literais, como acima. Não use `"{{ ansible_hostname }}"`: esse valor é coletado de cada host e muda conforme o host processado, o que faz a lista variar entre máquinas.
 
-`controller_host` aparece como texto, ainda com as chaves `{{ }}`. Isso é esperado: o valor é um template, que só é resolvido quando o Ansible conhece o hostname da máquina.
+#### Abordagem B: lista derivada do inventário (recomendada)
 
-Esse hostname vem da **coleta de fatos** (*gathering facts*): no início de cada execução de playbook, o Ansible consulta a máquina e registra informações como hostname, sistema operacional, CPUs e memória. Comandos avulsos, como o `debug` acima, não fazem essa coleta. Por isso, `controller_host` não é consultado com `debug`.
+Nesta forma, a topologia não é repetida. `group_vars/all.yml` tem apenas os valores do cluster:
 
-A coleta pode ser feita de forma isolada com o módulo `setup`, que é o mesmo usado no início de um playbook. A opção `filter` limita a saída a um fato:
-
-```bash
-ansible localhost -m ansible.builtin.setup -a "filter=ansible_hostname"
+```yaml
+cluster_name: mini-cluster
+slurmd_port: 6818
+controller_host: "{{ groups['controller'][0] }}"
 ```
 
-Saída ilustrativa:
+A lista de nós vem do próprio inventário, e o hardware de cada nó vem das variáveis do host correspondente. Os templates fazem essa leitura com duas construções:
 
-```
-localhost | SUCCESS => {
-    "ansible_facts": {
-        "ansible_hostname": "nome-da-maquina"
-    },
-    "changed": false
-}
-```
+- **`groups['compute']`** é a lista de hosts do grupo `compute`. Ela é a mesma, qualquer que seja o host que está sendo processado.
+- **`hostvars[nome]`** permite ler as variáveis de qualquer host, a partir de qualquer outro. Por exemplo, `hostvars[h].cpus` lê o número de CPUs do host `h`.
 
-O valor é o hostname real, e não `localhost`. É esse o valor que `controller_host` assume durante a execução do playbook. Sem o `filter`, o módulo lista todos os fatos coletados, o que é uma forma útil de descobrir quais informações estão disponíveis.
+O valor de `controller_host` também não depende do host processado. `groups` é global, então `groups['controller'][0]` resolve para o mesmo nome em todas as máquinas. Essa é a diferença essencial em relação ao `ansible_hostname`, que muda de uma máquina para outra.
 
-### Por que a fonte única da verdade
+Quando a topologia cresce, o trabalho se resume a adicionar a máquina ao inventário, com suas variáveis. Nenhum outro arquivo precisa ser editado.
 
-Imagine que você precisa adicionar um nó. Sem uma fonte única, seria preciso alterar o número de CPUs em um arquivo, a linha de GPU em outro, a porta em um terceiro, e assim por diante. Com a fonte única, você adiciona **um** item à lista `slurm_nodes`, e os templates geram todas as linhas necessárias. Esse princípio é o que torna a IaC útil no dia a dia.
+#### Quadro comparativo
 
-> **Referência:** Ansible. *Using variables*. docs.ansible.com. Seções sobre `group_vars` e precedência de variáveis.
-> **Referência:** Ansible. *Variables: Facts*. docs.ansible.com. Explica as variáveis coletadas automaticamente, como `ansible_hostname`.
+| Critério | Abordagem A: lista em `group_vars` | Abordagem B: derivada do inventário |
+|---|---|---|
+| Onde a topologia fica | Em `group_vars/all.yml`, separada das máquinas | No inventário, junto de cada máquina |
+| Esforço para adicionar uma máquina | Descrever a máquina em dois lugares | Adicionar a máquina ao inventário |
+| Risco de divergência | Alto: as duas descrições podem não bater | Baixo: há uma única fonte |
+| Dependência de fatos coletados | Nenhuma, se os nomes forem literais | Nenhuma |
+| Legibilidade para quem começa | Alta, tudo em um arquivo | Média: exige entender grupos e `hostvars` |
+| Adequação a várias máquinas | Funciona, com disciplina manual | Adequada por construção |
+
+A abordagem A é uma boa forma de começar, porque mostra a topologia de maneira direta. A abordagem B é a recomendada, porque remove a repetição que causa a divergência. A recomendação segue a orientação da documentação oficial do Ansible, que trata o inventário como a fonte da topologia e as variáveis de host como o lugar dos valores que pertencem a cada máquina.
+
+> **Referência:** Ansible. *Using variables*. docs.ansible.com. Seções sobre `group_vars`, `host_vars` e precedência de variáveis.
+> **Referência:** Ansible. *Magic variables, and how to access information about other hosts*. docs.ansible.com. Explica `groups`, `group_names` e `hostvars`.
+> **Referência:** Ansible. *Variables: Facts*. docs.ansible.com. Explica as variáveis coletadas automaticamente, como `ansible_hostname`, e por que elas dependem do host.
 
 ---
 

@@ -111,7 +111,7 @@ Para consultar o significado de qualquer opção, use o manual do arquivo:
 man slurm.conf
 ```
 
-> **Atenção:** o arquivo `slurm.conf` será gerado pelo Ansible a partir de um template (Parte 7). Edições feitas diretamente no arquivo gerado são sobrescritas na próxima execução do playbook. Para alterar a configuração, altere a fonte, que são as variáveis em `group_vars/all.yml`.
+> **Atenção:** o arquivo `slurm.conf` será gerado pelo Ansible a partir de um template (Parte 7). Edições feitas diretamente no arquivo gerado são sobrescritas na próxima execução do playbook. Para alterar a configuração, altere a fonte, que são as variáveis do inventário e de `group_vars/all.yml`.
 
 > **Referência:** SchedMD. *slurm.conf: Slurm configuration file*. slurm.schedmd.com/slurm.conf.html. Documentação completa de todas as opções.
 

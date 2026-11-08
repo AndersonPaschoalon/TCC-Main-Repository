@@ -83,7 +83,7 @@ O arquivo `roles/slurm/tasks/main.yml` fica assim:
 
 Leitura:
 
-- **`template`** lê o arquivo `.j2` da pasta `templates/`, substitui as variáveis pelos valores de `group_vars/all.yml` e grava o resultado em `dest`. Se o conteúdo gerado for igual ao que já existe no sistema, a tarefa reporta `ok`, e nada é gravado.
+- **`template`** lê o arquivo `.j2` da pasta `templates/`, substitui as variáveis pelos valores do inventário e de `group_vars/all.yml` e grava o resultado em `dest`. Se o conteúdo gerado for igual ao que já existe no sistema, a tarefa reporta `ok`, e nada é gravado.
 - **`notify`** avisa os handlers de que o arquivo mudou. A notificação só ocorre quando a tarefa reporta `changed`. Se o arquivo já estiver correto, nenhum handler é disparado.
 - **`when: "'controller' in group_names"`** executa a tarefa apenas em hosts que pertencem ao grupo `controller`. `group_names` é uma variável especial, criada pelo Ansible, com a lista de grupos do host atual. Esse é o mecanismo que decide quais serviços cada máquina executa, a partir do inventário da Parte 3.
 
@@ -173,17 +173,17 @@ Este é o procedimento que se repete sempre que a configuração muda. Ele é o 
 
 ### Passo 1: editar a fonte
 
-Altere `group_vars/all.yml`, e não os arquivos gerados. Por exemplo, para reduzir a memória declarada de um nó, altere `real_memory`:
+Altere `inventory/hosts.yml`, e não os arquivos gerados. Para reduzir a memória declarada de uma máquina, altere `real_memory` no grupo `compute`:
 
 ```yaml
-slurm_nodes:
-  - name: node01
-    addr: 127.0.0.1
-    port: 6818
-    cpus: 8
-    real_memory: 7800
-    gpu_count: 1
-    gpu_device: /dev/nvidia0
+    compute:
+      hosts:
+        <hostname>:
+          ansible_connection: local
+          cpus: 8
+          real_memory: 7600
+          gpu_count: 1
+          gpu_device: /dev/nvidia0
 ```
 
 ### Passo 2: validar a sintaxe
@@ -225,23 +225,17 @@ Na segunda execução, o `PLAY RECAP` deve mostrar `changed=0`, ou no máximo a 
 Depois de validar, registre a mudança no controle de versão. Se o projeto usa Git, por exemplo:
 
 ```bash
-git add group_vars/all.yml roles/slurm/templates/
+git add inventory/hosts.yml group_vars/all.yml roles/slurm/templates/
 git commit -m "Declara novo nó no cluster"
 ```
 
 A validação de que o cluster funciona, com `sinfo` e jobs de teste, é feita na Parte 9.
 
-### Limite desta abordagem: nomes de nós com `ansible_hostname`
+### Por que o nome do nó vem do inventário
 
-Em `group_vars/all.yml`, o nome do nó e o do controlador foram definidos com `"{{ ansible_hostname }}"`. Com uma única máquina, esse valor é o próprio nome do host, e está correto.
+Com a abordagem B da Parte 3, o nome de cada nó é o nome do host no inventário, e a lista de nós é lida de `groups['compute']`. Não há nome copiado em outro arquivo, então adicionar uma máquina exige apenas uma entrada no inventário. Os templates da Parte 7 passam a valer para uma máquina ou para várias, sem nenhuma alteração.
 
-Com várias máquinas, o problema aparece. Variáveis definidas em `group_vars` são avaliadas no contexto do host que está sendo processado. Assim, ao processar o controlador, `ansible_hostname` vale o nome do controlador para todas as entradas da lista `slurm_nodes`, inclusive as que deveriam ser de outros nós. O mesmo ocorre com `controller_host` em um nó de computação.
-
-A correção, tratada na Parte 10, é usar nomes literais nas entradas da lista, por exemplo `name: node01`, e manter o hostname real apenas como verificação. Por enquanto, com uma única máquina, o valor atual funciona.
-
-> **Atenção:** antes de adicionar uma segunda máquina ao inventário, troque `"{{ ansible_hostname }}"` por nomes literais em `group_vars/all.yml`. Sem essa troca, o `slurm.conf` gerado no controlador terá nomes de nós errados.
-
-> **Referência:** Ansible. *Using variables: variable precedence and scope*. docs.ansible.com. Como variáveis de `group_vars` são avaliadas e a precedência entre fontes.
+> **Referência:** Ansible. *Using variables: variable precedence and scope*. docs.ansible.com. Precedência entre fontes de variáveis, incluindo `group_vars` e variáveis de host.
 
 ---
 
@@ -249,7 +243,7 @@ A correção, tratada na Parte 10, é usar nomes literais nas entradas da lista,
 
 Ao final, a role `slurm` está completa: renderiza os três arquivos de configuração, notifica os handlers quando eles mudam, e inicia o `slurmctld` ou o `slurmd` conforme o grupo do host. Você entende a ordem de execução entre as roles e dentro da role, a função dos handlers, e o fluxo de seis passos para qualquer mudança: editar a fonte, validar, simular, aplicar, verificar a idempotência e registrar.
 
-Você também conhece um limite do projeto atual: os nomes derivados de `ansible_hostname` funcionam para uma única máquina, mas precisam ser literais quando houver mais de uma.
+Você também sabe por que a topologia vem do inventário: a lista de nós é derivada dos grupos, e as variáveis de cada máquina ficam com a própria máquina, de modo que adicionar uma máquina não exige editar mais de um arquivo.
 
 A configuração está aplicada, mas ainda não foi verificada pelo próprio Slurm. Essa verificação é feita na Parte 9.
 

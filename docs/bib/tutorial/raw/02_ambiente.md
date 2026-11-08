@@ -118,7 +118,7 @@ O Secure Boot pode impedir o carregamento de módulos do kernel que não estejam
 mokutil --sb-state
 ```
 
-Se o Secure Boot estiver ativo e a camada 2 ou a camada 3 falharem, há duas saídas: desativar o Secure Boot na BIOS/UEFI, ou registrar uma chave de assinatura para o módulo (o Gerenciador de Drivers do Linux Mint orienta esse processo). Anote a escolha no registro do ambiente.
+Se o Secure Boot estiver ativo e a camada 2 ou a camada 3 falharem, há duas saídas: desativar o Secure Boot na BIOS/UEFI, ou registrar uma chave de assinatura para o módulo (o gerenciador de drivers do sistema, quando houver, orienta esse processo). Anote a escolha no registro do ambiente.
 
 Se o driver não estiver instalado, o caminho mais direto no Ubuntu e derivados é:
 
@@ -128,7 +128,7 @@ sudo ubuntu-drivers install     # instala o recomendado
 sudo reboot
 ```
 
-No Linux Mint, o Gerenciador de Drivers gráfico faz a mesma coisa.
+Em distribuições com interface gráfica, o gerenciador de drivers do sistema faz a mesma coisa.
 
 > **Referência:** NVIDIA. *nvidia-smi: NVIDIA System Management Interface*. Guia do usuário, disponível em docs.nvidia.com. Use a versão do guia correspondente ao driver instalado.
 > **Referência:** Gregg, B. *Systems Performance: Enterprise and the Cloud*. Addison-Wesley. Capítulos sobre inventário e observação de hardware. (Verifique a edição antes de citar.)

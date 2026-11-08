@@ -115,26 +115,26 @@ Os quatro conceitos centrais:
 | Conceito | O que é | Exemplo de arquivo |
 |---|---|---|
 | **Inventário** | Lista das máquinas e seus grupos | `inventory/hosts.yml` |
-| **Variáveis** | Valores usados pelas tarefas e pelos templates | `group_vars/all.yml` |
+| **Variáveis** | Valores usados pelas tarefas e pelos templates | `group_vars/all.yml` e variáveis de host no inventário |
 | **Playbook** | Lista ordenada de roles ou tarefas, com os hosts-alvo | `site.yml` |
 | **Role** | Pasta com tarefas, handlers e templates de um assunto | `roles/slurm/` |
 
-Teste de conexão com o modo *ad hoc* (um comando único, sem arquivo de playbook):
+Teste de conexão com o modo *ad hoc* (um comando único, sem arquivo de playbook). O padrão `all` aponta para todos os hosts do inventário:
 
 ```bash
-ansible localhost -m ping
+ansible all -m ping
 ```
 
-Se responder `pong`, o Ansible consegue operar na máquina. Aqui, `localhost` é o nome do host no inventário, e `ping` é um módulo do Ansible, não o comando de rede.
+Se responder `pong`, o Ansible consegue operar na máquina. Aqui, `ping` é um módulo do Ansible, não o comando de rede.
 
-Inventário mínimo para executar tudo na própria máquina:
+Inventário mínimo para executar tudo na própria máquina. O nome do host é o nome curto da máquina, que `hostname -s` retorna:
 
 ```yaml
 all:
   children:
     controller:
       hosts:
-        localhost:
+        <hostname>:
           ansible_connection: local
 ```
 
@@ -224,7 +224,7 @@ squeue                       # mostra o job na fila ou em execução
 cat saida_1234.log           # lê o resultado quando o job termina
 ```
 
-Slurm é uma entre várias alternativas para gerenciar filas de jobs. Outras opções conhecidas incluem o Open Grid Scheduler (sucessor do Sun Grid Engine), o PBS/Torque e o LSF, além de soluções baseadas em Kubernetes. A escolha depende do tipo de carga, do suporte a GPUs e da maturidade da comunidade.
+Slurm é uma entre várias alternativas para gerenciar filas de jobs. Outras opções conhecidas incluem o Open Grid Scheduler (continuação de código aberto do Sun Grid Engine), o PBS/Torque e o LSF, além de soluções baseadas em Kubernetes. A escolha depende do tipo de carga, do suporte a GPUs e da maturidade da comunidade.
 
 ---
 
@@ -359,7 +359,7 @@ sudo mount -t nfs servidor:/dados /mnt/datasets
 ls /mnt/datasets        # os arquivos aparecem como se fossem locais
 ```
 
-Para que a montagem sobreviva a uma reinicialização, ela é registrada em `/etc/fstab`, ou gerenciada pela automação. Do ponto de vista de um job, o caminho `/mnt/datasets` é uma pasta comum.
+A versão do protocolo é negociada entre cliente e servidor, e pode ser fixada com a opção `vers=` do comando `mount`, conforme a configuração do servidor. Para que a montagem sobreviva a uma reinicialização, ela é registrada em `/etc/fstab`, ou gerenciada pela automação. Do ponto de vista de um job, o caminho `/mnt/datasets` é uma pasta comum.
 
 Um NAS é uma escolha de armazenamento, não um requisito do Slurm. Ele é útil quando vários nós precisam dos mesmos dados. A escolha da solução (NFS, Ceph, outras) depende do tamanho do cluster, da rede e do tipo de carga.
 
@@ -370,7 +370,7 @@ Um NAS é uma escolha de armazenamento, não um requisito do Slurm. Ele é útil
 Fluxo de uma mudança na configuração:
 
 ```
-Você edita group_vars/all.yml (por exemplo, adiciona um nó)
+Você edita o inventário (por exemplo, adiciona uma máquina)
         │
         ▼
 ansible-playbook site.yml
@@ -385,7 +385,7 @@ ansible-playbook site.yml
 Slurm pronto: sinfo mostra o nó, sbatch executa o job na GPU
 ```
 
-Você não edita `slurm.conf` diretamente. Você altera a fonte (`group_vars/all.yml`), e o Ansible regenera o arquivo. As próximas partes detalham cada etapa desse fluxo.
+Você não edita `slurm.conf` diretamente. Você altera a fonte (o inventário ou `group_vars/all.yml`), e o Ansible regenera o arquivo. As próximas partes detalham cada etapa desse fluxo.
 
 ---
 

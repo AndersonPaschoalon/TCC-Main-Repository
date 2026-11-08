@@ -214,7 +214,7 @@ Compare com os valores que você levantou na Parte 2:
 - **CPUs:** o valor de `CPUs=` deve corresponder ao de `nproc`.
 - **Memória:** o valor de `RealMemory=` é a memória que o Slurm vai usar. Ele costuma ser um pouco menor que o total de `free -m`, porque parte da memória é reservada pelo kernel.
 
-Se houver diferença, prevalece o valor de `slurmd -C`. Atualize `cpus` e `real_memory` em `group_vars/all.yml`, com o `RealMemory` como limite. Declarar mais memória do que a máquina tem é o erro mais comum, e ele faz o nó aparecer como indisponível na Parte 9.
+Se houver diferença, prevalece o valor de `slurmd -C`. Atualize `cpus` e `real_memory` no inventário, no host correspondente, com o `RealMemory` como limite. Declarar mais memória do que a máquina tem é o erro mais comum, e ele faz o nó aparecer como indisponível na Parte 9.
 
 > **Atenção:** os serviços `slurmctld` e `slurmd` podem já estar instalados e tentar iniciar com a configuração padrão do pacote. Nesta etapa, o projeto ainda não tem configuração própria do Slurm. Se `systemctl status slurmctld` mostrar falha, isso é esperado. A configuração correta é aplicada na Parte 8.
 
