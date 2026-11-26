@@ -1,0 +1,40 @@
+
+flowchart TB
+    subgraph ANSIBLE["Ansible — nó de controle (IaC)"]
+        AC["Playbooks e roles:<br/>slurm-controller, slurm-compute,<br/>mariadb, nas-client"]
+    end
+
+    subgraph CTRL["Host controlador"]
+        SLURMCTLD["slurmctld<br/>escalonador Slurm"]
+        SLURMDBD["slurmdbd<br/>daemon de accounting"]
+        MARIADB["MariaDB<br/>slurm_acct_db"]
+        SLURMCTLD --- SLURMDBD
+        SLURMDBD --- MARIADB
+    end
+
+    subgraph NODES["Nós de computação — N hosts com GPU"]
+        direction LR
+        NODE1["Node 1<br/>slurmd + GPU"]
+        NODE2["Node 2<br/>slurmd + GPU"]
+        NODEN["Node N<br/>slurmd + GPU"]
+    end
+
+    NAS[(NAS compartilhado)]
+    USER([Usuário<br/>sbatch / squeue])
+
+    ANSIBLE -. provisiona .-> CTRL
+    ANSIBLE -. provisiona .-> NODES
+    ANSIBLE -. configura montagem .-> NAS
+
+    USER -- submete job --> SLURMCTLD
+    SLURMCTLD -- despacha --> NODE1
+    SLURMCTLD -- despacha --> NODE2
+    SLURMCTLD -- despacha --> NODEN
+
+    NODE1 -.-> NAS
+    NODE2 -.-> NAS
+    NODEN -.-> NAS
+    CTRL -.-> NAS
+
+
+

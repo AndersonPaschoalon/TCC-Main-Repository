@@ -1,0 +1,14 @@
+| Item | Valor |
+|---|---|
+| Função da máquina | a preencher (ex.: controlador, nó de computação, desenvolvimento) |
+| Hostname curto (`hostname -s`) | a preencher |
+| Distribuição (`/etc/os-release`) | a preencher |
+| Tipo de máquina (notebook ou desktop) | a preencher |
+| GPU (`nvidia-smi -L`) | a preencher ou "sem GPU" |
+| Memória de vídeo | a preencher |
+| Versão do driver | a preencher |
+| Versão CUDA suportada | a preencher |
+| Secure Boot (`mokutil --sb-state`) | a preencher |
+| CPUs (`nproc`) | a preencher |
+| Memória total (`free -m`) | a preencher |
+

@@ -1,0 +1,13 @@
+- name: Garantir que o serviço munge está ativo
+  ansible.builtin.systemd:
+    name: munge
+    state: started
+    enabled: true
+
+- name: Garantir dono e permissões da chave do munge
+  ansible.builtin.file:
+    path: /etc/munge/munge.key
+    owner: munge
+    group: munge
+    mode: "0400"
+
